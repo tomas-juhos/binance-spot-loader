@@ -84,12 +84,6 @@ class Loader:
         self.mode = "SLOW"
         i = 1
         for symbol, start_time in keys:
-            # BY ADDING 1 MINUTE (TO THE NEXT KLINE) GUARANTEE IT IS CLOSED
-            if (
-                date_helpers.get_next_interval(self.interval, start_time)
-                < time.time() * 1000
-            ):
-                self.mode = "FAST"
             logger.info(f"Processing {symbol} ({i}/{n_symbols})...")
             i += 1
 
@@ -117,6 +111,9 @@ class Loader:
         records = [record.as_tuple() for record in record_objs]
         latest_records = [record.as_tuple() for record in new_latest]
 
+        if len(records) != len(symbol_lst):
+            self.mode = 'FAST'
+
         logger.info("Persiting records...")
         self.target.execute(self.queries[self.interval].UPSERT, records)
         self.target.execute(self.latest_queries[self.interval].UPSERT, latest_records)
@@ -124,7 +121,7 @@ class Loader:
 
         end = datetime.utcnow()
         logger.info(
-            f"Persisted klines for {len(symbol_lst)} symbols in {end - start}."
+            f"Persisted klines ({len(records)}) for {len(symbol_lst)} symbols in {end - start}."
         )
 
     def run_as_service(self):
