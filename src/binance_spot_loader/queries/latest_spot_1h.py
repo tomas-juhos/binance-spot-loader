@@ -11,11 +11,13 @@ class Queries(BaseQueries):
         "   symbol, "
         "   id, "
         "   open_time, "
+        "   active, "
         "   source "
         ") VALUES %s "
         "ON CONFLICT (symbol) DO "
         "UPDATE SET "
         "    symbol=EXCLUDED.symbol, "
         "    open_time=EXCLUDED.open_time, "
+        "    active=EXCLUDED.active, "
         "    source=EXCLUDED.source;"
     )

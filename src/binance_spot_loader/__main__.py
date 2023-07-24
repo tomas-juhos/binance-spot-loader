@@ -73,8 +73,7 @@ class Loader:
                 (
                     k[0],
                     date_helpers.get_next_interval(
-                        self.interval, date_helpers.datetime_to_binance_timestamp(k[1])
-                    ),
+                        self.interval, date_helpers.datetime_to_binance_timestamp(k[1])),
                 )
                 for k in latest
             ]
@@ -95,21 +94,10 @@ class Loader:
             for record in raw_records:
                 record_id = self.target.get_next_id(self.interval)
                 record_objs.append(Kline.build_record([record_id, symbol] + record))
+            new_latest.append(self.latest_closed(symbol, record_objs))
 
-            if len(record_objs) > 1:
-                last_closed_kline = record_objs[-2]
-                new_latest.append(
-                    Latest.build_record(
-                        [
-                            symbol,
-                            last_closed_kline.id,
-                            last_closed_kline.open_time,
-                            self.source_name,
-                        ]
-                    )
-                )
         records = [record.as_tuple() for record in record_objs]
-        latest_records = [record.as_tuple() for record in new_latest]
+        latest_records = [record.as_tuple() for record in new_latest if record]
 
         if len(records) != len(symbol_lst):
             self.mode = 'FAST'
@@ -123,6 +111,35 @@ class Loader:
         logger.info(
             f"Persisted klines ({len(records)}) for {len(symbol_lst)} symbols in {end - start}."
         )
+
+    def latest_closed(self, symbol: str, record_objs: List[Kline]):
+        res = None
+        active = True
+        if len(record_objs) > 1:
+            last_closed_kline = record_objs[-2]
+            res = Latest.build_record(
+                    [
+                        symbol,
+                        last_closed_kline.id,
+                        last_closed_kline.open_time,
+                        active,
+                        self.source_name,
+                    ]
+            )
+        else:
+            active = date_helpers.check_active(self.interval, record_objs[0].open_time)
+            if not active:
+                last_kline = record_objs[0]
+                res = Latest.build_record(
+                        [
+                            symbol,
+                            last_kline.id,
+                            last_kline.open_time,
+                            active,
+                            self.source_name,
+                        ]
+                    )
+        return res
 
     def run_as_service(self):
         # ON THE FIRST RUN IT GETS SYMBOLS ACCORDING TO FILTERS

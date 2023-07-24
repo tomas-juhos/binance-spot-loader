@@ -1,5 +1,13 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timezone
 from typing import Dict, Optional
+
+
+seconds_per_unit: Dict[str, int] = {
+        "m": 60,
+        "h": 60 * 60,
+        "d": 24 * 60 * 60,
+        "w": 7 * 24 * 60 * 60,
+    }
 
 
 def binance_timestamp_to_datetime(timestamp: int) -> datetime:
@@ -10,7 +18,7 @@ def binance_timestamp_to_datetime(timestamp: int) -> datetime:
 
 def datetime_to_binance_timestamp(d: datetime):
     # UTC
-    timestamp = int(datetime.timestamp(d) * 1000)
+    timestamp = int(d.replace(tzinfo=timezone.utc).timestamp() * 1000)
     return timestamp
 
 
@@ -25,12 +33,6 @@ def interval_to_milliseconds(interval: str) -> Optional[int]:
         None if interval suffix is not one of m, h, d, w
 
     """
-    seconds_per_unit: Dict[str, int] = {
-        "m": 60,
-        "h": 60 * 60,
-        "d": 24 * 60 * 60,
-        "w": 7 * 24 * 60 * 60,
-    }
     try:
         return int(interval[:-1]) * seconds_per_unit[interval[-1]] * 1000
     except (ValueError, KeyError):
@@ -39,3 +41,13 @@ def interval_to_milliseconds(interval: str) -> Optional[int]:
 
 def get_next_interval(interval: str, timestamp: int):
     return timestamp + interval_to_milliseconds(interval)
+
+
+def check_active(interval: str, d: datetime):
+    ts = datetime_to_binance_timestamp(d)
+    lag10 = 10 * int(interval[:-1]) * seconds_per_unit[interval[-1]] * 1000
+    now = datetime_to_binance_timestamp(datetime.utcnow())
+    if now - lag10 > ts:
+        return False
+    else:
+        return True
