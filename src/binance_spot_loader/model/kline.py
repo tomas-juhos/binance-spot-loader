@@ -59,6 +59,4 @@ class Kline(State):
         )
 
     def __repr__(self):
-        return (
-            f"{self.symbol}, {self.open_time}"
-        )
+        return f"{self.symbol}, {self.open_time}"

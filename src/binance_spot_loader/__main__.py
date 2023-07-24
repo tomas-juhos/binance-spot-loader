@@ -43,7 +43,6 @@ class Loader:
 
         self.n_requests = 1
 
-
     def setup(self):
         self.source.connect()
         self.target.connect()
@@ -77,7 +76,9 @@ class Loader:
             symbol_record_objs = []
             for record in raw_records:
                 record_id = self.target.get_next_id(self.interval)
-                symbol_record_objs.append(Kline.build_record([record_id, symbol] + record))
+                symbol_record_objs.append(
+                    Kline.build_record([record_id, symbol] + record)
+                )
             new_latest.append(self.latest_closed(symbol, symbol_record_objs))
             record_objs.extend(symbol_record_objs)
 
@@ -101,7 +102,9 @@ class Loader:
         latest = self.target.get_latest(self.interval)
         if latest:
             new_symbols_set = set(symbol_lst) - set(k[0] for k in latest)
-            new_symbols = [s[0] for s in symbol_lst if s[0] in new_symbols_set and s[2] is True]
+            new_symbols = [
+                s[0] for s in symbol_lst if s[0] in new_symbols_set and s[2] is True
+            ]
         else:
             new_symbols = symbol_lst
         if new_symbols:
@@ -114,9 +117,12 @@ class Loader:
             keys = [
                 (
                     k[0],
-                    date_helpers.get_next_interval(self.interval, date_helpers.datetime_to_binance_timestamp(k[1]))
+                    date_helpers.get_next_interval(
+                        self.interval, date_helpers.datetime_to_binance_timestamp(k[1])
+                    ),
                 )
-                for k in latest if k[2] is True
+                for k in latest
+                if k[2] is True
             ]
         self.n_active_symbols = len(keys)
         return keys
