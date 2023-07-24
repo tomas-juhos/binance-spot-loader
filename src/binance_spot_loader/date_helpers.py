@@ -3,11 +3,11 @@ from typing import Dict, Optional
 
 
 seconds_per_unit: Dict[str, int] = {
-        "m": 60,
-        "h": 60 * 60,
-        "d": 24 * 60 * 60,
-        "w": 7 * 24 * 60 * 60,
-    }
+    "m": 60,
+    "h": 60 * 60,
+    "d": 24 * 60 * 60,
+    "w": 7 * 24 * 60 * 60,
+}
 
 
 def binance_timestamp_to_datetime(timestamp: int) -> datetime:

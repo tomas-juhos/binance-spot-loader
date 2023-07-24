@@ -55,28 +55,9 @@ class Loader:
         start: datetime = datetime.utcnow()
         end: datetime
         n_symbols = len(symbol_lst)
-        logger.info(f'Processing {n_symbols} symbols.')
+        logger.info(f"Processing {n_symbols} symbols.")
 
-        latest = self.target.get_latest(self.interval)
-        if latest:
-            new_symbols = set(symbol_lst) - set(k[0] for k in latest)
-        else:
-            new_symbols = symbol_lst
-        if new_symbols:
-            logger.info("Fetching earliest timestamps for new symbols...")
-            keys = [
-                (s, self.source.get_earliest_valid_timestamp(s)) for s in new_symbols
-            ]
-            self.check_request_limit()
-        else:
-            keys = [
-                (
-                    k[0],
-                    date_helpers.get_next_interval(
-                        self.interval, date_helpers.datetime_to_binance_timestamp(k[1])),
-                )
-                for k in latest
-            ]
+        keys = self.get_keys(symbol_lst)
 
         record_objs: List[Kline] = []
         new_latest: List[Latest] = []
@@ -100,7 +81,7 @@ class Loader:
         latest_records = [record.as_tuple() for record in new_latest if record]
 
         if len(records) != len(symbol_lst):
-            self.mode = 'FAST'
+            self.mode = "FAST"
 
         logger.info("Persiting records...")
         self.target.execute(self.queries[self.interval].UPSERT, records)
@@ -112,33 +93,57 @@ class Loader:
             f"Persisted klines ({len(records)}) for {len(symbol_lst)} symbols in {end - start}."
         )
 
+    def get_keys(self, symbol_lst):
+        latest = self.target.get_latest(self.interval)
+        if latest:
+            new_symbols = set(symbol_lst) - set(k[0] for k in latest)
+        else:
+            new_symbols = symbol_lst
+        if new_symbols:
+            logger.info("Fetching earliest timestamps for new symbols...")
+            keys = [
+                (s, self.source.get_earliest_valid_timestamp(s)) for s in new_symbols
+            ]
+            self.check_request_limit()
+        else:
+            keys = [
+                (
+                    k[0],
+                    date_helpers.get_next_interval(
+                        self.interval, date_helpers.datetime_to_binance_timestamp(k[1])
+                    ),
+                )
+                for k in latest
+            ]
+        return keys
+
     def latest_closed(self, symbol: str, record_objs: List[Kline]):
         res = None
         active = True
         if len(record_objs) > 1:
             last_closed_kline = record_objs[-2]
             res = Latest.build_record(
-                    [
-                        symbol,
-                        last_closed_kline.id,
-                        last_closed_kline.open_time,
-                        active,
-                        self.source_name,
-                    ]
+                [
+                    symbol,
+                    last_closed_kline.id,
+                    last_closed_kline.open_time,
+                    active,
+                    self.source_name,
+                ]
             )
         else:
             active = date_helpers.check_active(self.interval, record_objs[0].open_time)
             if not active:
                 last_kline = record_objs[0]
                 res = Latest.build_record(
-                        [
-                            symbol,
-                            last_kline.id,
-                            last_kline.open_time,
-                            active,
-                            self.source_name,
-                        ]
-                    )
+                    [
+                        symbol,
+                        last_kline.id,
+                        last_kline.open_time,
+                        active,
+                        self.source_name,
+                    ]
+                )
         return res
 
     def run_as_service(self):
