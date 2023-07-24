@@ -55,7 +55,9 @@ class Target:
 
     def get_latest(self, interval):
         cursor = self.cursor
-        query = ("SELECT symbol, open_time " "FROM latest_spot_{interval};").format(
+        query = ("SELECT symbol, open_time " 
+                 "FROM latest_spot_{interval} "
+                 "WHERE active = true;").format(
             interval=interval
         )
         cursor.execute(query)

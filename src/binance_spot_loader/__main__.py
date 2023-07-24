@@ -71,11 +71,12 @@ class Loader:
                 symbol=symbol, interval=self.interval, start_time=start_time
             )
             self.check_request_limit()
-
+            symbol_record_objs = []
             for record in raw_records:
                 record_id = self.target.get_next_id(self.interval)
-                record_objs.append(Kline.build_record([record_id, symbol] + record))
-            new_latest.append(self.latest_closed(symbol, record_objs))
+                symbol_record_objs.append(Kline.build_record([record_id, symbol] + record))
+            new_latest.append(self.latest_closed(symbol, symbol_record_objs))
+            record_objs.extend(symbol_record_objs)
 
         records = [record.as_tuple() for record in record_objs]
         latest_records = [record.as_tuple() for record in new_latest if record]
@@ -109,9 +110,7 @@ class Loader:
             keys = [
                 (
                     k[0],
-                    date_helpers.get_next_interval(
-                        self.interval, date_helpers.datetime_to_binance_timestamp(k[1])
-                    ),
+                    date_helpers.get_next_interval(self.interval, date_helpers.datetime_to_binance_timestamp(k[1]))
                 )
                 for k in latest
             ]

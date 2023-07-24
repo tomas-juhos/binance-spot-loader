@@ -45,9 +45,9 @@ def get_next_interval(interval: str, timestamp: int):
 
 def check_active(interval: str, d: datetime):
     ts = datetime_to_binance_timestamp(d)
-    lag10 = 10 * int(interval[:-1]) * seconds_per_unit[interval[-1]] * 1000
+    lag1 = int(interval[:-1]) * seconds_per_unit[interval[-1]] * 1000
     now = datetime_to_binance_timestamp(datetime.utcnow())
-    if now - lag10 > ts:
+    if now - lag1 >= ts:
         return False
     else:
         return True

@@ -17,6 +17,7 @@ class Queries(BaseQueries):
         "ON CONFLICT (symbol) DO "
         "UPDATE SET "
         "    symbol=EXCLUDED.symbol, "
+        "    id=EXCLUDED.id, "
         "    open_time=EXCLUDED.open_time, "
         "    active=EXCLUDED.active, "
         "    source=EXCLUDED.source;"

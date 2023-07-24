@@ -131,7 +131,7 @@ class Source:
             return
 
     def get_earliest_valid_timestamp(self, symbol):
-        logger.info(f"Getting ealiest timestamp for {symbol}...")
+        logger.info(f"Getting earliest timestamp for {symbol}...")
         kline = self.get_klines(
             symbol=symbol,
             interval=self.interval,
