@@ -57,3 +57,8 @@ class Kline(State):
             self.taker_buy_volume,
             self.taker_buy_quote_volume,
         )
+
+    def __repr__(self):
+        return (
+            f"{self.symbol}, {self.open_time}"
+        )

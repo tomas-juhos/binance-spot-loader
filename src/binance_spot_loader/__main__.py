@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 class Loader:
     mode: str
+    n_active_symbols: int
 
     queries: Dict[str, BaseQueries] = {"1h": Spot1hQueries}
 
@@ -33,12 +34,15 @@ class Loader:
         self.interval = os.environ.get("INTERVAL")
         self.source = source.Source(os.environ.get("SOURCE"), self.interval)
         self.target = target.Target(os.environ.get("TARGET"))
-        self.n_requests = 1
+
         quote_symbols_str = os.environ.get("QUOTE_SYMBOLS")
         self.quote_symbols = dict(
             (symbol, len(symbol)) for symbol in quote_symbols_str.split(sep=",")
         )
         self.source_name = "BINANCE"
+
+        self.n_requests = 1
+
 
     def setup(self):
         self.source.connect()
@@ -54,17 +58,16 @@ class Loader:
     def run_once(self, symbol_lst):
         start: datetime = datetime.utcnow()
         end: datetime
-        n_symbols = len(symbol_lst)
-        logger.info(f"Processing {n_symbols} symbols.")
 
         keys = self.get_keys(symbol_lst)
+        logger.info(f"Processing {self.n_active_symbols} symbols.")
 
         record_objs: List[Kline] = []
         new_latest: List[Latest] = []
         self.mode = "SLOW"
         i = 1
         for symbol, start_time in keys:
-            logger.info(f"Processing {symbol} ({i}/{n_symbols})...")
+            logger.info(f"Processing {symbol} ({i}/{self.n_active_symbols})...")
             i += 1
 
             raw_records = self.source.get_klines(
@@ -81,7 +84,7 @@ class Loader:
         records = [record.as_tuple() for record in record_objs]
         latest_records = [record.as_tuple() for record in new_latest if record]
 
-        if len(records) != len(symbol_lst):
+        if len(records) != self.n_active_symbols:
             self.mode = "FAST"
 
         logger.info("Persiting records...")
@@ -91,13 +94,14 @@ class Loader:
 
         end = datetime.utcnow()
         logger.info(
-            f"Persisted klines ({len(records)}) for {len(symbol_lst)} symbols in {end - start}."
+            f"Persisted klines ({len(records)}) for {self.n_active_symbols} symbols in {end - start}."
         )
 
     def get_keys(self, symbol_lst):
         latest = self.target.get_latest(self.interval)
         if latest:
-            new_symbols = set(symbol_lst) - set(k[0] for k in latest)
+            new_symbols_set = set(symbol_lst) - set(k[0] for k in latest)
+            new_symbols = [s[0] for s in symbol_lst if s[0] in new_symbols_set and s[2] is True]
         else:
             new_symbols = symbol_lst
         if new_symbols:
@@ -112,8 +116,9 @@ class Loader:
                     k[0],
                     date_helpers.get_next_interval(self.interval, date_helpers.datetime_to_binance_timestamp(k[1]))
                 )
-                for k in latest
+                for k in latest if k[2] is True
             ]
+        self.n_active_symbols = len(keys)
         return keys
 
     def latest_closed(self, symbol: str, record_objs: List[Kline]):
