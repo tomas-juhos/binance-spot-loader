@@ -9,21 +9,21 @@ from binance_spot_loader.model.base import State
 
 
 class Latest(State):
-
     symbol: str
+    id: int
     open_time: datetime
+    source: str
 
     @classmethod
     def build_record(cls, record: List) -> "Latest":
         res = cls()
 
         res.symbol = record[0]
-        res.open_time = date_helpers.binance_timestamp_to_datetime(record[1])
+        res.id = record[1]
+        res.open_time = record[2]
+        res.source = record[3]
 
         return res
 
     def as_tuple(self) -> Tuple:
-        return (
-            self.symbol,
-            self.open_time
-        )
+        return (self.symbol, self.id, self.open_time, self.source)

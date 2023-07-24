@@ -1,7 +1,4 @@
 from .latest import Latest
 from .kline import Kline
 
-__all__ = [
-    "Latest",
-    "Kline"
-]
+__all__ = ["Latest", "Kline"]

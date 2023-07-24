@@ -1,13 +1,14 @@
-"""Spot 1m queries."""
+"""Spot 1h queries."""
 
 from binance_spot_loader.queries.base import BaseQueries
 
 
 class Queries(BaseQueries):
-    """Spot 1m queries."""
+    """Spot 1h queries."""
 
     UPSERT = (
-        "INSERT INTO spot_1m ("
+        "INSERT INTO spot_1h ("
+        "   id, "
         "   symbol, "
         "   open_time, "
         "   open_price, "

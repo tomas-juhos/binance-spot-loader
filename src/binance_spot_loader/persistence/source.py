@@ -1,11 +1,10 @@
 """Source."""
 
-from decimal import Decimal
 import hmac
 import hashlib
 import logging
 import time
-from typing import Dict, List
+from typing import Dict, Optional
 from sys import stdout
 import os
 
@@ -32,11 +31,13 @@ class Source:
 
     mkt_cap_filter: int = 5_000_000
 
-    def __init__(self, connection_string: str):
-        credentials = dict(kv.split('=') for kv in connection_string.split(' '))
+    def __init__(self, connection_string: str, interval: str):
+        credentials = dict(kv.split("=") for kv in connection_string.split(" "))
 
-        self._api_key = credentials['API_KEY']
-        self._secret_key = credentials['SECRET_KEY']
+        self._api_key = credentials["API_KEY"]
+        self._secret_key = credentials["SECRET_KEY"]
+
+        self.interval = interval
 
     def connect(self) -> None:
         self._session = requests.Session()
@@ -51,7 +52,7 @@ class Source:
         self.ping()
 
     def ping(self):
-        url = f'{self.base_url}ping'
+        url = f"{self.base_url}ping"
         response = self._session.get(url)
 
         if response.status_code == 200:
@@ -59,114 +60,63 @@ class Source:
         else:
             logger.info(f"Connection failed with status code {response.status_code}")
 
-    def get_all_symbols(self):
-        url = f'{self.base_url}exchangeInfo'
+    def get_symbols(self, quote_symbols: Optional[Dict[str, int]]):
+        url = f"{self.base_url}exchangeInfo"
         response = self._session.get(url)
 
         if response.status_code == 200:
-            symbols = [
-                symbol["symbol"]
-                for symbol in response.json()["symbols"]
-                if symbol["symbol"][-4:] == "USDT"
-                or symbol["symbol"][-4:] == "BUSD"
-                # or symbol["symbol"][-3:] == "BTC"
-                # or symbol["symbol"][-3:] == "ETH"
-                # or symbol["symbol"][-3:] == "BNB"
-            ]
+            symbols = []
+            if quote_symbols:
+                for quote_symbol, lenght in quote_symbols.items():
+                    temp_symbols = [
+                        symbol["symbol"]
+                        for symbol in response.json()["symbols"]
+                        if symbol["symbol"][-lenght:] == quote_symbol
+                    ]
+                    symbols.extend(temp_symbols)
+            else:
+                symbols = [symbol["symbol"] for symbol in response.json()["symbols"]]
             return symbols
         else:
             logger.warning(f"Request failed with status code {response.status_code}")
             return
 
-    def get_daily_volume(self, symbol):
-        """Returns the daily volume of a symbol in USDT."""
-        if symbol[-4:] == "USDT":
-            quote_currency = "USDT"
-        elif symbol[-4:] == "BUSD":
-            quote_currency = "BUSD"
-        elif symbol[-3:] == "BTC":
-            quote_currency = "BTC"
-        elif symbol[-3:] == "ETH":
-            quote_currency = "ETH"
-        elif symbol[-3:] == "BNB":
-            quote_currency = "BNB"
-        else:
-            logger.warning('Not valid symbol provided.')
-            return
-
-        # Get the trading pair's daily volume
-        volume_url = f'{self.base_url}ticker/24hr?symbol={symbol}'
-        response = self._session.get(volume_url)
-        if response.status_code == requests.codes.ok:
-            daily_volume = Decimal(response.json()['quoteVolume'])
-        else:
-            logger.warning(f"Request failed with status code {response.status_code}")
-            return
-
-        if quote_currency == 'USDT':
-            return daily_volume
-        else:
-            # Get the current price of the quote currency
-            ticker_url = f'{self.base_url}ticker/price?symbol={quote_currency}USDT'
-            response = self._session.get(ticker_url)
-            if response.status_code == requests.codes.ok:
-                quote_price = Decimal(response.json()['price'])
-            else:
-                logger.warning(f"Request failed with status code {response.status_code}")
-                return
-
-            # Calculate the daily volume in dollars
-            daily_volume_usd = daily_volume * quote_price
-
-            return daily_volume_usd
-
-    def filter_symbols(self, symbol_lst: List[str], mkt_cap: int = mkt_cap_filter):
-        res = []
-        i = 0
-        n = len(symbol_lst)
-        for symbol in symbol_lst:
-            if i % 100 == 0:
-                logger.info(f'Filtered {i}/{n} symbols...')
-            if self.get_daily_volume(symbol) >= mkt_cap:
-                res.append(symbol)
-            i += 1
-        logger.info(f'Filtered {n}/{n} symbols.')
-        return res
-
-    def get_symbols(self):
-        res = self.filter_symbols(self.get_all_symbols())
-        return res
-
-    def get_klines(self, symbol: str, start_time: int = None, end_time: int = None, limit: int = 1000):
-        url = f'{self.base_url}klines'
+    def get_klines(
+        self,
+        symbol: str,
+        interval: str,
+        start_time: int = None,
+        end_time: int = None,
+        limit: int = 1000,
+    ):
+        url = f"{self.base_url}klines"
         if start_time is not None and end_time is not None:
             params = {
-                'symbol': symbol,
-                'interval': '1m',
-                'startTime': start_time,
-                'endTime': end_time,
-                'limit': limit
+                "symbol": symbol,
+                "interval": interval,
+                "startTime": start_time,
+                "endTime": end_time,
+                "limit": limit,
             }
         elif start_time is not None:
             params = {
-                'symbol': symbol,
-                'interval': '1m',
-                'startTime': start_time,
-                'limit': limit
+                "symbol": symbol,
+                "interval": interval,
+                "startTime": start_time,
+                "limit": limit,
             }
         else:
-            params = {
-                'symbol': symbol,
-                'interval': '1m',
-                'limit': limit
-            }
+            params = {"symbol": symbol, "interval": interval, "limit": limit}
 
         timestamp = str(int(time.time() * 1000))
-        query_string = '&'.join([f"{k}={v}" for k, v in params.items()])
-        signature = hmac.new(self._secret_key.encode('utf-8'), f"{query_string}&timestamp={timestamp}".encode('utf-8'),
-                             hashlib.sha256).hexdigest()
-        self._headers['X-MBX-TIMESTAMP'] = timestamp
-        self._headers['X-MBX-SIGNATURE'] = signature
+        query_string = "&".join([f"{k}={v}" for k, v in params.items()])
+        signature = hmac.new(
+            self._secret_key.encode("utf-8"),
+            f"{query_string}&timestamp={timestamp}".encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
+        self._headers["X-MBX-TIMESTAMP"] = timestamp
+        self._headers["X-MBX-SIGNATURE"] = signature
         self._session.headers.update(self._headers)
 
         response = self._session.get(url, params=params)
@@ -181,10 +131,12 @@ class Source:
             return
 
     def get_earliest_valid_timestamp(self, symbol):
+        logger.info(f"Getting ealiest timestamp for {symbol}...")
         kline = self.get_klines(
             symbol=symbol,
+            interval=self.interval,
             start_time=0,
             end_time=int(time.time() * 1000),
-            limit=1
+            limit=1,
         )
         return kline[0][0]

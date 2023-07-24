@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 class Target:
     """Target class."""
+
     def __init__(self, connection_string: str) -> None:
         """Postgres' data source.
         Args:
@@ -52,27 +53,23 @@ class Target:
         """Commits a transaction."""
         self._connection.commit()
 
-    def get_latest(self):
+    def get_latest(self, interval):
         cursor = self.cursor
-        query = (
-            "SELECT symbol, open_time "
-            "FROM latest_spot_1m;"
+        query = ("SELECT symbol, open_time " "FROM latest_spot_{interval};").format(
+            interval=interval
         )
         cursor.execute(query)
         res = cursor.fetchall()
 
         return res if res else None
 
-    def get_symbols(self):
+    def get_next_id(self, interval):
         cursor = self.cursor
-        query = (
-            "SELECT symbol "
-            "FROM latest_spot_1m; "
-        )
+        query = ("SELECT NEXTVAL('spot_{interval}_id_seq');").format(interval=interval)
         cursor.execute(query)
-        res = cursor.fetchall()
+        res = cursor.fetchone()
 
-        return [s[0] for s in res] if res else None
+        return res[0] if res else None
 
     def execute(self, instruction: str, records: List[Tuple]) -> None:
         """Executes values.

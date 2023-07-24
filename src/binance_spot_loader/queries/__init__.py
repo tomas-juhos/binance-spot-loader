@@ -1,9 +1,7 @@
 """Queries implementation."""
 
-from .latest_spot_1m import Queries as LatestSpot1mQueries
-from .spot_1m import Queries as Spot1mQueries
+from .base import BaseQueries
+from .latest_spot_1h import Queries as LatestSpot1hQueries
+from .spot_1h import Queries as Spot1hQueries
 
-__all__ = [
-    "LatestSpot1mQueries",
-    "Spot1mQueries"
-]
+__all__ = ["BaseQueries", "LatestSpot1hQueries", "Spot1hQueries"]

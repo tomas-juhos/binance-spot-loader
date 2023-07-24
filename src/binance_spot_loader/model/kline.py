@@ -7,7 +7,7 @@ from binance_spot_loader.model.base import State
 
 
 class Kline(State):
-
+    id: int
     symbol: str
     open_time: datetime
     open_price: Decimal
@@ -25,23 +25,25 @@ class Kline(State):
     def build_record(cls, record: List) -> "Kline":
         res = cls()
 
-        res.symbol = record[0]
-        res.open_time = date_helpers.binance_timestamp_to_datetime(record[1])
-        res.open_price = Decimal(record[2])
-        res.high_price = Decimal(record[3])
-        res.low_price = Decimal(record[4])
-        res.close_price = Decimal(record[5])
-        res.volume = Decimal(record[6])
-        res.close_time = date_helpers.binance_timestamp_to_datetime(record[7])
-        res.quote_volume = Decimal(record[8])
-        res.trades = int(record[9])
-        res.taker_buy_volume = Decimal(record[10])
-        res.taker_buy_quote_volume = Decimal(record[11])
+        res.id = record[0]
+        res.symbol = record[1]
+        res.open_time = date_helpers.binance_timestamp_to_datetime(record[2])
+        res.open_price = Decimal(record[3])
+        res.high_price = Decimal(record[4])
+        res.low_price = Decimal(record[5])
+        res.close_price = Decimal(record[6])
+        res.volume = Decimal(record[7])
+        res.close_time = date_helpers.binance_timestamp_to_datetime(record[8])
+        res.quote_volume = Decimal(record[9])
+        res.trades = int(record[10])
+        res.taker_buy_volume = Decimal(record[11])
+        res.taker_buy_quote_volume = Decimal(record[12])
 
         return res
 
     def as_tuple(self) -> Tuple:
         return (
+            self.id,
             self.symbol,
             self.open_time,
             self.open_price,
@@ -55,6 +57,3 @@ class Kline(State):
             self.taker_buy_volume,
             self.taker_buy_quote_volume,
         )
-
-
-
