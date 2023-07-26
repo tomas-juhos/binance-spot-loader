@@ -4,11 +4,12 @@
 from datetime import datetime
 from typing import List, Tuple
 
-import binance_spot_loader.date_helpers as date_helpers
 from binance_spot_loader.model.base import State
 
 
 class Latest(State):
+    """Latest class."""
+
     symbol: str
     id: int
     open_time: datetime
@@ -17,6 +18,7 @@ class Latest(State):
 
     @classmethod
     def build_record(cls, record: List) -> "Latest":
+        """Build record object."""
         res = cls()
 
         res.symbol = record[0]
@@ -28,4 +30,5 @@ class Latest(State):
         return res
 
     def as_tuple(self) -> Tuple:
+        """Get object as tuple."""
         return (self.symbol, self.id, self.open_time, self.active, self.source)

@@ -1,3 +1,5 @@
+"""Kline model."""
+
 from datetime import datetime
 from decimal import Decimal
 from typing import List, Tuple
@@ -7,6 +9,8 @@ from binance_spot_loader.model.base import State
 
 
 class Kline(State):
+    """Kline class."""
+
     id: int
     symbol: str
     open_time: datetime
@@ -23,6 +27,7 @@ class Kline(State):
 
     @classmethod
     def build_record(cls, record: List) -> "Kline":
+        """Build record object."""
         res = cls()
 
         res.id = record[0]
@@ -42,6 +47,7 @@ class Kline(State):
         return res
 
     def as_tuple(self) -> Tuple:
+        """Get object as tuple."""
         return (
             self.id,
             self.symbol,
@@ -58,5 +64,5 @@ class Kline(State):
             self.taker_buy_quote_volume,
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{self.symbol}, {self.open_time}"

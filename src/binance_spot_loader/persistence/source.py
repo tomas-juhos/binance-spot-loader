@@ -1,12 +1,12 @@
 """Source."""
 
-import hmac
 import hashlib
+import hmac
 import logging
-import time
-from typing import Dict, Optional
-from sys import stdout
 import os
+from sys import stdout
+import time
+from typing import Dict, List, Optional
 
 import requests
 
@@ -31,7 +31,7 @@ class Source:
 
     mkt_cap_filter: int = 5_000_000
 
-    def __init__(self, connection_string: str, interval: str):
+    def __init__(self, connection_string: str, interval: str) -> None:
         credentials = dict(kv.split("=") for kv in connection_string.split(" "))
 
         self._api_key = credentials["API_KEY"]
@@ -40,18 +40,19 @@ class Source:
         self.interval = interval
 
     def connect(self) -> None:
+        """Connect to the Binance Rest API."""
         self._session = requests.Session()
         self._headers = {
             "Accept": "application/json",
-            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36",
-            # noqa
+            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36",  # noqa: B950
             "X-MBX-APIKEY": self._api_key,
         }
         self._session.headers.update(self._headers)
 
         self.ping()
 
-    def ping(self):
+    def ping(self) -> None:
+        """Ping Binance Rest API."""
         url = f"{self.base_url}ping"
         response = self._session.get(url)
 
@@ -60,7 +61,10 @@ class Source:
         else:
             logger.info(f"Connection failed with status code {response.status_code}")
 
-    def get_symbols(self, quote_symbols: Optional[Dict[str, int]]):
+    def get_symbols(
+        self, quote_symbols: Optional[Dict[str, int]]
+    ) -> Optional[List[str]]:
+        """Gets all symbols quoted in the provided currencies (and their lenght)."""
         url = f"{self.base_url}exchangeInfo"
         response = self._session.get(url)
 
@@ -79,16 +83,17 @@ class Source:
             return symbols
         else:
             logger.warning(f"Request failed with status code {response.status_code}")
-            return
+            return None
 
     def get_klines(
         self,
         symbol: str,
         interval: str,
-        start_time: int = None,
-        end_time: int = None,
+        start_time: Optional[int] = None,
+        end_time: Optional[int] = None,
         limit: int = 1000,
-    ):
+    ) -> Optional[List[List]]:
+        """Get Binance klines."""
         url = f"{self.base_url}klines"
         if start_time is not None and end_time is not None:
             params = {
@@ -128,9 +133,10 @@ class Source:
         else:
             # Print the error message
             logger.warning(f"Request failed with status code {response.status_code}")
-            return
+            return None
 
-    def get_earliest_valid_timestamp(self, symbol):
+    def get_earliest_valid_timestamp(self, symbol: str) -> Optional[int]:
+        """Get earliest Binance timestamp for the provided symbol."""
         logger.info(f"Getting earliest timestamp for {symbol}...")
         kline = self.get_klines(
             symbol=symbol,
@@ -139,4 +145,4 @@ class Source:
             end_time=int(time.time() * 1000),
             limit=1,
         )
-        return kline[0][0]
+        return kline[0][0] if kline else None

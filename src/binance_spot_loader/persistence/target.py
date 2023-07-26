@@ -1,7 +1,7 @@
 """Target."""
 
 import logging
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import psycopg2
 import psycopg2.extensions
@@ -15,6 +15,7 @@ class Target:
 
     def __init__(self, connection_string: str) -> None:
         """Postgres' data source.
+
         Args:
             connection_string: Definitions to connect with data source.
         """
@@ -36,8 +37,8 @@ class Target:
             "inet_server_port(),' - ',version()"
             ") as v"
         )
-
-        return cursor.fetchone()[0]
+        ping = cursor.fetchone()
+        return ping[0] if ping else None
 
     @property
     def cursor(self) -> psycopg2.extensions.cursor:
@@ -53,17 +54,20 @@ class Target:
         """Commits a transaction."""
         self._connection.commit()
 
-    def get_latest(self, interval):
+    def get_latest(self, interval: str) -> Optional[List[Tuple]]:
+        """Get latest persisted open time for the available symbols."""
         cursor = self.cursor
         query = (
-            "SELECT symbol, open_time, active " "FROM latest_spot_{interval};"
+            "SELECT symbol, open_time, active "  # noqa: S608
+            "FROM latest_spot_{interval};"
         ).format(interval=interval)
         cursor.execute(query)
         res = cursor.fetchall()
 
         return res if res else None
 
-    def get_next_id(self, interval):
+    def get_next_id(self, interval: str) -> Optional[int]:
+        """Get next id for the given interval."""
         cursor = self.cursor
         query = ("SELECT NEXTVAL('spot_{interval}_id_seq');").format(interval=interval)
         cursor.execute(query)
@@ -72,7 +76,8 @@ class Target:
         return res[0] if res else None
 
     def execute(self, instruction: str, records: List[Tuple]) -> None:
-        """Executes values.
+        """Execute values.
+
         Args:
             instruction: sql query.
             records: records to persist.
