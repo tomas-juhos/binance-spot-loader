@@ -7,9 +7,6 @@ from typing import List, Optional, Tuple
 class BaseModel(ABC):
     """Base entity model."""
 
-    delivery_id: Optional[int] = None
-    event_id: Optional[int] = None
-
     @classmethod
     @abstractmethod
     def build_record(cls, record: List) -> "BaseModel":
