@@ -6,7 +6,7 @@ import logging
 import os
 from sys import stdout
 import time
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import requests
 
@@ -81,6 +81,26 @@ class Source:
             else:
                 symbols = [symbol["symbol"] for symbol in response.json()["symbols"]]
             return symbols
+        else:
+            logger.warning(f"Request failed with status code {response.status_code}")
+            return None
+
+    def get_trading_status(
+        self, symbols: Optional[List[str]]
+    ) -> Optional[List[Tuple[str, str]]]:
+        """Get trading status of the provided symbols."""
+        url = f"{self.base_url}exchangeInfo"
+        response = self._session.get(url)
+
+        if response.status_code == 200:
+            symbol_status = []
+            if symbols:
+                symbol_status = [
+                    (symbol["symbol"], symbol["status"])
+                    for symbol in response.json()["symbols"]
+                    if symbol["symbol"] in symbols
+                ]
+            return symbol_status
         else:
             logger.warning(f"Request failed with status code {response.status_code}")
             return None

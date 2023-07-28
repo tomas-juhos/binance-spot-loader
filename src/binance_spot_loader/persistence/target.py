@@ -58,13 +58,26 @@ class Target:
         """Get latest persisted open time for the available symbols."""
         cursor = self.cursor
         query = (
-            "SELECT symbol, open_time, active "  # noqa: S608
-            "FROM latest_spot_{interval};"
+            "SELECT symbol, latest_close, active "  # noqa: S608
+            "FROM spot_{interval}_latest;"
         ).format(interval=interval)
         cursor.execute(query)
         res = cursor.fetchall()
 
         return res if res else None
+
+    def get_inactive_symbols(self, interval: str) -> Optional[List[str]]:
+        """Get latest persisted open time for the available symbols."""
+        cursor = self.cursor
+        query = (
+            "SELECT symbol "  # noqa: S608
+            "FROM spot_{interval}_latest "
+            "WHERE active IS false;"
+        ).format(interval=interval)
+        cursor.execute(query)
+        res = cursor.fetchall()
+
+        return [s[0] for s in res] if res else None
 
     def get_next_id(self, interval: str) -> Optional[int]:
         """Get next id for the given interval."""

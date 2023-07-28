@@ -1,8 +1,8 @@
-CREATE TABLE latest_spot_1h
+CREATE TABLE spot_1h_latest
 (
     symbol                                  VARCHAR(20),
     id                                      BIGINT,
-    open_time                               TIMESTAMP,
+    latest_close                            TIMESTAMP,
     active                                  BOOLEAN,
     source                                  VARCHAR(20),
 

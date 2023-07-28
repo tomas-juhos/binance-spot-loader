@@ -17,4 +17,3 @@ CREATE TABLE spot_1h
     PRIMARY KEY (id),
     UNIQUE (symbol, open_time)
 );
-CREATE INDEX idx_spot_1h_symbol_open_time ON spot_1h(symbol, open_time);

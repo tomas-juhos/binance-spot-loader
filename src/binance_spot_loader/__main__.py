@@ -12,7 +12,7 @@ from typing import Dict, List, Optional, Tuple
 import binance_spot_loader.date_helpers as date_helpers
 from binance_spot_loader.model import Kline, Latest
 from binance_spot_loader.persistence import source, target
-from binance_spot_loader.queries import BaseQueries, LatestSpot1hQueries, Spot1hQueries
+import binance_spot_loader.queries as queries
 
 logging.basicConfig(
     level=os.environ.get("LOG_LEVEL", "INFO").upper(),
@@ -29,13 +29,15 @@ class Loader:
     _source: source.Source
     _target: target.Target
 
-    interval: str
-    quote_symbols: Dict[str, int]
-    n_active_symbols: int
+    _interval: str
+    _quote_symbols: Dict[str, int]
+    _n_active_symbols: int
 
-    queries: Dict[str, BaseQueries] = {"1h": Spot1hQueries()}
+    _queries: Dict[str, queries.BaseQueries] = {"1h": queries.Spot1hQueries()}
 
-    latest_queries: Dict[str, BaseQueries] = {"1h": LatestSpot1hQueries()}
+    _queries_latest: Dict[str, queries.BaseQueriesLatest] = {
+        "1h": queries.Spot1hLatestQueries()
+    }
 
     def __init__(self) -> None:
         self.source_name = "BINANCE"
@@ -46,9 +48,9 @@ class Loader:
         """Set up loader and connections."""
         self._source = source.Source(args.source, args.interval)
         self._target = target.Target(args.target)
-        self.interval = args.interval
+        self._interval = args.interval
         quote_symbols_str = args.quote_symbols
-        self.quote_symbols = dict(
+        self._quote_symbols = dict(
             (symbol, len(symbol)) for symbol in quote_symbols_str.split(sep=",")
         )
 
@@ -69,17 +71,17 @@ class Loader:
         start = datetime.utcnow()
 
         keys = self.get_keys(symbol_lst)
-        logger.info(f"Processing {self.n_active_symbols} symbols.")
+        logger.info(f"Processing {self._n_active_symbols} symbols.")
 
         record_objs = []
         new_latest = []
         i = 1
         for symbol, start_time in keys:
-            logger.info(f"Processing {symbol} ({i}/{self.n_active_symbols})...")
+            logger.info(f"Processing {symbol} ({i}/{self._n_active_symbols})...")
             i += 1
 
             raw_records = self._source.get_klines(
-                symbol=symbol, interval=self.interval, start_time=start_time
+                symbol=symbol, interval=self._interval, start_time=start_time
             )
             if not raw_records:
                 logger.warning(f"No response for symbol: {symbol}.")
@@ -88,7 +90,7 @@ class Loader:
 
             symbol_record_objs = []
             for record in raw_records:
-                record_id = self._target.get_next_id(self.interval)
+                record_id = self._target.get_next_id(self._interval)
                 symbol_record_objs.append(
                     Kline.build_record([record_id, symbol] + record)
                 )
@@ -98,23 +100,26 @@ class Loader:
         records = [record.as_tuple() for record in record_objs]
         latest_records = [record.as_tuple() for record in new_latest if record]
 
-        if len(records) != self.n_active_symbols:
+        if len(records) != self._n_active_symbols:
             self.mode = "FAST"
 
         logger.info("Persiting records...")
-        self._target.execute(self.queries[self.interval].UPSERT, records)
-        self._target.execute(self.latest_queries[self.interval].UPSERT, latest_records)
+        self._target.execute(self._queries[self._interval].UPSERT, records)
+        self._target.execute(
+            self._queries_latest[self._interval].UPSERT, latest_records
+        )
         self._target.commit_transaction()
 
+        self.check_trading_status()
         end = datetime.utcnow()
         logger.info(
             f"Persisted klines ({len(records)})"
-            f" for {self.n_active_symbols} symbols in {end - start}."
+            f" for {self._n_active_symbols} symbols in {end - start}."
         )
 
     def get_keys(self, symbol_lst: List[str]) -> List[Tuple[str, int]]:
         """Get (symbol, timestamp) combinations to request."""
-        latest = self._target.get_latest(self.interval)
+        latest = self._target.get_latest(self._interval)
         keys = []
         if latest:
             for k in latest:
@@ -123,7 +128,7 @@ class Loader:
                         (
                             k[0],
                             date_helpers.get_next_interval(
-                                self.interval,
+                                self._interval,
                                 date_helpers.datetime_to_binance_timestamp(k[1]),
                             ),
                         )
@@ -139,7 +144,7 @@ class Loader:
                     keys.append((s, earliest_ts))
                 self.check_request_limit()
 
-        self.n_active_symbols = len(keys)
+        self._n_active_symbols = len(keys)
         return keys
 
     def latest_closed(self, symbol: str, record_objs: List[Kline]) -> Optional[Latest]:
@@ -158,7 +163,7 @@ class Loader:
                 ]
             )
         else:
-            active = date_helpers.check_active(self.interval, record_objs[0].open_time)
+            active = date_helpers.check_active(self._interval, record_objs[0].open_time)
             if not active:
                 last_kline = record_objs[0]
                 res = Latest.build_record(
@@ -172,12 +177,29 @@ class Loader:
                 )
         return res
 
+    def check_trading_status(self) -> None:
+        """Check if inactive pairs are trading again."""
+        logger.info("Checking inactive symbols...")
+        inactive_symbols = self._target.get_inactive_symbols(self._interval)
+        trading_status = self._source.get_trading_status(inactive_symbols)
+        self.check_request_limit()
+        if trading_status:
+            active_symbols = [(s[0],) for s in trading_status if s[1] == "TRADING"]
+            if active_symbols:
+                self._target.execute(
+                    self._queries_latest[self._interval].CORRECT_TRADING_STATUS,
+                    active_symbols,
+                )
+                self._target.commit_transaction()
+                for symbol in active_symbols:
+                    logger.info(f"Reinstated {symbol}.")
+
     def run_as_service(self) -> None:
         """Run process continuously."""
         # ON THE FIRST RUN IT GETS SYMBOLS ACCORDING TO FILTERS
         # AFTER THAT IT ONLY UPDATE THOSE SYMBOLS
         logger.info("Fetching symbols...")
-        symbol_list = self._source.get_symbols(self.quote_symbols)
+        symbol_list = self._source.get_symbols(self._quote_symbols)
         if not symbol_list:
             return None
         logger.info("Running...")
@@ -191,7 +213,7 @@ class Loader:
                     logger.info(f"Waiting {timedelta(seconds=t)}... ({self.mode})")
                 elif self.mode == "SLOW":
                     interval_sec = int(
-                        (date_helpers.interval_to_milliseconds(self.interval) / 1000)
+                        (date_helpers.interval_to_milliseconds(self._interval) / 1000)
                         / 4
                     )
                     t = secrets.choice(
@@ -218,7 +240,7 @@ class Loader:
         if args.as_service:
             self.run_as_service()
         else:
-            symbol_list = self._source.get_symbols(self.quote_symbols)
+            symbol_list = self._source.get_symbols(self._quote_symbols)
             if symbol_list:
                 self.run_once(symbol_list)
 
