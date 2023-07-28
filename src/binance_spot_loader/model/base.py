@@ -4,15 +4,15 @@ from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple
 
 
-class State(ABC):
-    """Base state."""
+class BaseModel(ABC):
+    """Base entity model."""
 
     delivery_id: Optional[int] = None
     event_id: Optional[int] = None
 
     @classmethod
     @abstractmethod
-    def build_record(cls, record: List) -> "State":
+    def build_record(cls, record: List) -> "BaseModel":
         """Creates object from source record."""
 
     @abstractmethod

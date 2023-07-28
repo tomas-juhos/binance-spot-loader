@@ -5,10 +5,10 @@ from decimal import Decimal
 from typing import List, Tuple
 
 import binance_spot_loader.date_helpers as date_helpers
-from binance_spot_loader.model.base import State
+from binance_spot_loader.model.base import BaseModel
 
 
-class Kline(State):
+class Kline(BaseModel):
     """Kline class."""
 
     id: int

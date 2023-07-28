@@ -4,10 +4,10 @@
 from datetime import datetime
 from typing import List, Tuple
 
-from binance_spot_loader.model.base import State
+from binance_spot_loader.model.base import BaseModel
 
 
-class Latest(State):
+class Latest(BaseModel):
     """Latest class."""
 
     symbol: str
